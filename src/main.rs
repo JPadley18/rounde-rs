@@ -3,7 +3,7 @@ use std::io::Write;
 use std::process;
 
 mod poker;
-use poker::cards::{Card, Suit};
+use crate::poker::cards::{Card, Suit};
 
 fn main() {
     println!("Trying to connect to server");
