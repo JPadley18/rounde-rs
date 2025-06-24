@@ -2,6 +2,9 @@ use std::net::{TcpStream};
 use std::io::Write;
 use std::process;
 
+mod poker;
+use poker::cards::{Card, Suit};
+
 fn main() {
     println!("Trying to connect to server");
     let mut socket = match TcpStream::connect("127.0.0.1:4444") {
@@ -13,6 +16,9 @@ fn main() {
     };
 
     println!("Connected!");
+
+    let card: Card = Card::new(14, Suit::Spades);
+    println!("{card:?}");
 
     let message = "Hello World!";
     match socket.write_all(message.as_bytes()) {
