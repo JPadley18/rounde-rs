@@ -116,7 +116,9 @@ mod tests {
         let mut game = Game::new(String::from("Player 1"));
         for i in 1..MAX_PLAYERS {
             assert_eq!(game.players.len(), i, "Check the number of players before we add one");
-            assert!(game.add_player(format!("Player {}", i + 1)).is_ok(), "We should be able to add a player");
+            let idx = game.add_player(format!("Player {}", i + 1));
+            assert!(idx.is_ok(), "Adding a player should not create an error if the game isn't full");
+            assert_eq!(idx.unwrap(), i, "The correct index should be returned when adding a new player");
             assert_eq!(game.players.len(), i + 1, "Check the number of players increased");
         }
         assert!(game.add_player(String::from("Too many")).is_err(), "Check that adding too many players creates an error");
