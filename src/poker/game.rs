@@ -1,7 +1,6 @@
-use std::fmt;
-
 use crate::poker::cards::Card;
 use crate::poker::cards::Suit;
+use crate::poker::errors;
 
 // Texas Hold'em constants
 const DEFAULT_SMALL_BLIND: u64 = 1;
@@ -9,16 +8,7 @@ const DEFAULT_BIG_BLIND: u64 = 2;
 const DEFAULT_STARTING_STACK: u64 = 250;
 const MAX_PLAYERS: usize = 8;
 
-#[derive(Debug, Clone)]
-pub struct GameFull;
-
-impl fmt::Display for GameFull {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "The game is full")
-    }
-}
-
-// A game encapsulates a whole game of Texas Hold'em poker
+/// A game encapsulates a whole game of Texas Hold'em poker
 pub struct Game {
     players: Vec<Player>,
     state: GameState,
@@ -30,23 +20,42 @@ pub struct Game {
 }
 
 impl Game {
+    /// Create a new Game, and add an initial player with the given name
     pub fn new(creator_name: String) -> Game {
         let mut initial_players = Vec::new();
         initial_players.push(Player::new(creator_name));
         Game { players: initial_players, state: GameState::Waiting, button_index: 0, turn_index: 0, small_blind: DEFAULT_SMALL_BLIND, big_blind: DEFAULT_BIG_BLIND, pot: 0 }
     }
 
-    pub fn add_player(&mut self, name: String) -> Result<usize, GameFull> {
+    /// Add a player to the game, will Err if the game is full. Otherwise, returns the index of the
+    /// added player.
+    pub fn add_player(&mut self, name: String) -> Result<usize, errors::JoinGameError> {
         let num_players = self.players.len();
         if num_players < MAX_PLAYERS {
             self.players.push(Player::new(name));
             // Since we have added a player, this will now equal the index of the added player
             return Ok(num_players);
         }
-        Err(GameFull)
+        Err(errors::JoinGameError{ kind: errors::JoinGameErrorKind::GameFull })
+    }
+
+    /// Starts the game. This will error unless the game state is equal to GameState::Waiting
+    pub fn start(&mut self) -> Result<(), errors::GameStartError> {
+        match self.state {
+            GameState::Waiting => {
+                if self.players.len() > 1 {
+                    // TODO: actually start the game properly
+                    self.state = GameState::PreFlop;
+                    return Ok(())
+                }
+                Err(errors::GameStartError{ kind: errors::GameStartErrorKind::InsufficientPlayers })
+            },
+            _ => Err(errors::GameStartError{ kind: errors::GameStartErrorKind::GameInProgress })
+        }
     }
 }
 
+/// Player represents a single player in a game of Texas Hold'em
 pub struct Player {
     name: String,
     chips: u64,
@@ -57,12 +66,14 @@ pub struct Player {
 }
 
 impl Player {
+    /// Creates a new Player with the given name
     pub fn new(name: String) -> Player {
         // Initialise a new Player struct with no chips and black pocket aces for funsies :)
         Player { name: name, chips: DEFAULT_STARTING_STACK, bet: 0, has_folded: false, is_sitting_out: true, hand: [Card::new(14, Suit::Spades), Card::new(14, Suit::Clubs)] }
     }
 }
 
+/// All of the possible states that the game could be in
 #[derive(PartialEq, Debug)]
 pub enum GameState {
     Waiting,
@@ -109,6 +120,14 @@ mod tests {
             assert_eq!(game.players.len(), i + 1, "Check the number of players increased");
         }
         assert!(game.add_player(String::from("Too many")).is_err(), "Check that adding too many players creates an error");
-        println!("{:?}", game.add_player(String::from("Player too many")));
+    }
+
+    #[test]
+    fn test_start_game() {
+        let mut game = Game::new(String::from("Player 1"));
+        assert!(game.start().is_err(), "Test that a game with one player in cannot be started");
+        assert!(game.add_player(String::from("Player 2")).is_ok(), "Test that we can add a player");
+        assert!(game.start().is_ok(), "Test that we start the game once enough players have been added");
+        assert!(game.start().is_err(), "Test that a game can only be started once");
     }
 }
