@@ -41,6 +41,17 @@ impl Game {
         Err(errors::JoinGameError { reason: String::from("game is full") })
     }
 
+    /// Removes a player by their UUID. Returns Err if the player doesn't exist in the game
+    pub fn remove_player(&mut self, uuid: Uuid) -> Result<(), errors::LeaveGameError> {
+        for (i, player) in self.players.iter().enumerate() {
+            if player.uuid == uuid {
+                self.players.remove(i);
+                return Ok(())
+            }
+        }
+        Err(errors::LeaveGameError { uuid })
+    }
+
     /// Starts the game. This will error unless the game state is equal to GameState::Waiting
     pub fn start(&mut self) -> Result<(), errors::GameStartError> {
         match self.state {
@@ -128,6 +139,21 @@ mod tests {
     #[test]
     fn test_remove_player() {
         let mut game = Game::new();
+        assert!(game.remove_player(Uuid::new_v4()).is_err(), "Test that removing a player from an empty game creates an error");
+        let player_id = game.add_player(String::from("Player 1")).unwrap();
+        assert_eq!(game.players.len(), 1, "Test that the player was really added");
+        assert!(game.remove_player(player_id).is_ok(), "Test that we can remove a valid player");
+        assert_eq!(game.players.len(), 0, "Test that the player really was removed");
+        let second_player_id = game.add_player(String::from("Player 2")).unwrap();
+        assert!(game.add_player(String::from("Player 3")).is_ok());
+        assert!(game.add_player(String::from("Player 4")).is_ok());
+        assert_eq!(game.players.len(), 3, "Test that we have the correct number of players before removal");
+        assert!(game.players.iter().any(|player| player.uuid == second_player_id), "Test that the second player is present before removal");
+        assert!(game.remove_player(player_id).is_err(), "Test that removing a non-existent player does nothing");
+        assert_eq!(game.players.len(), 3, "Test that the invalid remove did not mutate the players vector");
+        assert!(game.remove_player(second_player_id).is_ok(), "Test that removing a player with multiple players present removes the player");
+        assert_eq!(game.players.len(), 2, "Test that we are left with the correct number of players");
+        assert!(!game.players.iter().any(|player| player.uuid == second_player_id), "Test that the correct player was removed");
     }
 
     #[test]
