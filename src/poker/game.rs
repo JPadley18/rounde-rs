@@ -36,7 +36,7 @@ impl Game {
             // Since we have added a player, this will now equal the index of the added player
             return Ok(num_players);
         }
-        Err(errors::JoinGameError{ kind: errors::JoinGameErrorKind::GameFull })
+        Err(errors::JoinGameError { reason: String::from("game is full") })
     }
 
     /// Starts the game. This will error unless the game state is equal to GameState::Waiting
@@ -48,9 +48,9 @@ impl Game {
                     self.state = GameState::PreFlop;
                     return Ok(())
                 }
-                Err(errors::GameStartError{ kind: errors::GameStartErrorKind::InsufficientPlayers })
+                Err(errors::GameStartError{ reason: String::from("insufficient players to start the game") })
             },
-            _ => Err(errors::GameStartError{ kind: errors::GameStartErrorKind::GameInProgress })
+            _ => Err(errors::GameStartError{ reason: String::from("game is already in progress") })
         }
     }
 }
