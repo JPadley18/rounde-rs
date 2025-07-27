@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 use crate::poker::cards::Card;
 use crate::poker::cards::Suit;
 use crate::poker::errors;
@@ -20,21 +22,21 @@ pub struct Game {
 }
 
 impl Game {
-    /// Create a new Game, and add an initial player with the given name
-    pub fn new(creator_name: String) -> Game {
-        let mut initial_players = Vec::new();
-        initial_players.push(Player::new(creator_name));
-        Game { players: initial_players, state: GameState::Waiting, button_index: 0, turn_index: 0, small_blind: DEFAULT_SMALL_BLIND, big_blind: DEFAULT_BIG_BLIND, pot: 0 }
+    /// Instantiate a new Game
+    pub fn new() -> Game {
+        Game { players: Vec::new(), state: GameState::Waiting, button_index: 0, turn_index: 0, small_blind: DEFAULT_SMALL_BLIND, big_blind: DEFAULT_BIG_BLIND, pot: 0 }
     }
 
-    /// Add a player to the game, will Err if the game is full. Otherwise, returns the index of the
-    /// added player.
-    pub fn add_player(&mut self, name: String) -> Result<usize, errors::JoinGameError> {
+    /// Add a player to the game, will Err if the game is full. Otherwise, returns the UUID of the
+    /// added player so that the caller can perform actions on the player.
+    pub fn add_player(&mut self, name: String) -> Result<Uuid, errors::JoinGameError> {
         let num_players = self.players.len();
         if num_players < MAX_PLAYERS {
-            self.players.push(Player::new(name));
+            let new_player = Player::new(name);
+            let uuid = new_player.uuid;
+            self.players.push(new_player);
             // Since we have added a player, this will now equal the index of the added player
-            return Ok(num_players);
+            return Ok(uuid);
         }
         Err(errors::JoinGameError { reason: String::from("game is full") })
     }
@@ -58,6 +60,7 @@ impl Game {
 /// Player represents a single player in a game of Texas Hold'em
 pub struct Player {
     name: String,
+    uuid: Uuid,
     chips: u64,
     bet: u64,
     has_folded: bool,
@@ -67,9 +70,9 @@ pub struct Player {
 
 impl Player {
     /// Creates a new Player with the given name
-    pub fn new(name: String) -> Player {
+    fn new(name: String) -> Player {
         // Initialise a new Player struct with no chips and black pocket aces for funsies :)
-        Player { name: name, chips: DEFAULT_STARTING_STACK, bet: 0, has_folded: false, is_sitting_out: true, hand: [Card::new(14, Suit::Spades), Card::new(14, Suit::Clubs)] }
+        Player { name: name, uuid: Uuid::new_v4(), chips: DEFAULT_STARTING_STACK, bet: 0, has_folded: false, is_sitting_out: true, hand: [Card::new(14, Suit::Spades), Card::new(14, Suit::Clubs)] }
     }
 }
 
@@ -100,12 +103,11 @@ mod tests {
 
     #[test]
     fn test_create_game() {
-        let game = Game::new(String::from("test player"));
-        assert_eq!(game.players.len(), 1, "Newly created games should have a single player");
-        assert_eq!(game.players.get(0).unwrap().name, "test player", "Newly created games should contain their creator");
+        let game = Game::new();
+        assert_eq!(game.players.len(), 0, "Newly created games should have no players");
         assert_eq!(game.state, GameState::Waiting, "New games should begin in a waiting state");
-        assert_eq!(game.button_index, 0, "New games should start with the creator as the button");
-        assert_eq!(game.turn_index, 0, "New games should start with the creator as the current turn");
+        assert_eq!(game.button_index, 0, "New games should start with the button on player 0");
+        assert_eq!(game.turn_index, 0, "New games should start with the action on player 0");
         assert_eq!(game.pot, 0, "New games should have no chips in the pot");
         assert_eq!(game.small_blind, DEFAULT_SMALL_BLIND, "New games should start with the default small blind");
         assert_eq!(game.big_blind, DEFAULT_BIG_BLIND, "New games should start with the default big blind");
@@ -113,20 +115,26 @@ mod tests {
 
     #[test]
     fn test_add_player() {
-        let mut game = Game::new(String::from("Player 1"));
-        for i in 1..MAX_PLAYERS {
+        let mut game = Game::new();
+        for i in 0..MAX_PLAYERS {
             assert_eq!(game.players.len(), i, "Check the number of players before we add one");
             let idx = game.add_player(format!("Player {}", i + 1));
             assert!(idx.is_ok(), "Adding a player should not create an error if the game isn't full");
-            assert_eq!(idx.unwrap(), i, "The correct index should be returned when adding a new player");
             assert_eq!(game.players.len(), i + 1, "Check the number of players increased");
         }
         assert!(game.add_player(String::from("Too many")).is_err(), "Check that adding too many players creates an error");
     }
 
     #[test]
+    fn test_remove_player() {
+        let mut game = Game::new();
+    }
+
+    #[test]
     fn test_start_game() {
-        let mut game = Game::new(String::from("Player 1"));
+        let mut game = Game::new();
+        assert!(game.start().is_err(), "Test that an empty game cannot be started");
+        assert!(game.add_player(String::from("Player 1")).is_ok(), "Test that we can add a player");
         assert!(game.start().is_err(), "Test that a game with one player in cannot be started");
         assert!(game.add_player(String::from("Player 2")).is_ok(), "Test that we can add a player");
         assert!(game.start().is_ok(), "Test that we start the game once enough players have been added");
